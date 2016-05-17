@@ -10,56 +10,68 @@
       - upstream_url: "http://mockbin.com"
         request_host: "mockbin.com"
         request_path: "/mockbin"
-        
+        strip_request_path: yes
+        name: mockbin
+      - upstream_url: "http://192.168.99.1:3000/playlists/"
+        request_host: ""
+        request_path: "/playlist"
+        strip_request_path: yes
+        name: playlist
+
   tasks:
 
     - name: Register APIs
       kong_api:
-        kong_admin_uri: "{{kong_admin_base_url}}"
-        name: "mockbin"
-        upstream_url: "http://mockbin.com"
-        request_host: "mockbin.com"
-        request_path: "/mockbin"
-        strip_request_path: yes
+        kong_admin_uri: "{{ kong_admin_base_url }}"
+        name: "{{ item.name }}"
+        upstream_url: "{{ item.upstream_url }}"
+        request_host: "{{ item.request_host }}"
+        request_path: "{{ item.request_path }}"
+        strip_request_path: "{{ item.strip_request_path }}"
         state: present
+      with_items: "{{ kong_apis }}"
+
 
     - name: Verify API was added
       uri:
-        url: "{{kong_admin_base_url}}/apis/mockbin"
+        url: "{{kong_admin_base_url}}/apis{{ item.request_path }}"
         status_code: 200
+      with_items: "{{ kong_apis }}"
 
     - name: Add key authentication
       kong_plugin:
         kong_admin_uri: "{{kong_admin_base_url}}"
-        api_name: "mockbin"
+        api_name: "{{item.name}}"
         plugin_name: "key-auth"
         state: present
+      with_items: "{{ kong_apis }}"
 
     - name: Verify key auth was added
       uri:
-        url: "{{kong_base_url}}/mockbin"
+        url: "{{ kong_base_url }}{{ item.request_path }}"
         status_code: 401
+      with_items: "{{ kong_apis }}"
 
     - name: Add a consumer
       kong_consumer:
-        kong_admin_uri: "{{kong_admin_base_url}}"
-        username: "{{item.username}}"
+        kong_admin_uri: "{{ kong_admin_base_url }}"
+        username: "{{ item.username }}"
         state: present
-      with_items: "{{kong_consumers}}"
+      with_items: "{{ kong_consumers }}"
 
     - name: Configure consumer
       kong_consumer:
         kong_admin_uri: "{{kong_admin_base_url}}"
-        username: "{{item.username}}"
+        username: "{{ item.username }}"
         api_name: key-auth
         data:
-          key: "{{item.key}}"
+          key: "{{ item.key }}"
         state: configure
-      with_items: "{{kong_consumers}}"
+      with_items: "{{ kong_consumers }}"
 
     - name: Verify consumers can access API
       uri:
-        url: "{{kong_base_url}}/mockbin"
-        HEADER_apikey: "{{item.key}}"
+        url: "{{ kong_base_url }}{{ item.request_path }}"
+        HEADER_apikey: "123"
         status_code: 200
-      with_items: "{{kong_consumers}}"
+      with_items: "{{ kong_apis }}"

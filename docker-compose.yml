@@ -22,9 +22,12 @@ services:
     links:
       - kong-database:kong-database
     environment:
-    - DATABASE=cassandra
+      - DATABASE=cassandra
+    volumes:
+      - "./etc/kong/kong.yml:/etc/kong/kong.yml"
     security_opt:
       - label:seccomp:unconfined
+
   ui:
     restart: on-failure
     image: pgbi/kong-dashboard
